@@ -17,6 +17,7 @@ Reference:
   Wavelet choice: db4 — 4 vanishing moments, optimal for QRS morphology
 """
 import tensorflow as tf
+import keras
 import numpy as np
 import pywt
 from config import (
@@ -56,6 +57,7 @@ BAND_MASK = _compute_band_mask(signal_length=360)
 
 # ── L_CE: Class-weighted cross-entropy ──────────────────────────────────────
 
+@keras.saving.register_keras_serializable(package="cardioedge")
 class WeightedCrossEntropy(tf.keras.losses.Loss):
     """
     Standard cross-entropy with per-class weights to handle

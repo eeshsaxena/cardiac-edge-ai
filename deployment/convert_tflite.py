@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 import tensorflow as tf
 from config import PROCESSED_DIR, MODELS_DIR, TFLITE_DIR, BATCH_SIZE
+import training.losses  # registers WeightedCrossEntropy with Keras serialization
 
 
 def representative_dataset_gen(X_ecg, n_samples=200):
@@ -23,7 +24,7 @@ def convert_model(model_path: str, out_name: str, X_calib: np.ndarray,
         return
 
     print(f"\nConverting: {os.path.basename(model_path)}")
-    model = tf.keras.models.load_model(model_path)
+    model = tf.keras.models.load_model(model_path, compile=False)
 
     # ── FP16 version ──────────────────────────────────────────────────────
     conv = tf.lite.TFLiteConverter.from_keras_model(model)

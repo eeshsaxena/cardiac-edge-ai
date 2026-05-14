@@ -84,7 +84,7 @@ def train():
     for ckpt in ["student_full_kd.keras", "student_ce_kl.keras", "student_ce_only.keras"]:
         p = os.path.join(MODELS_DIR, ckpt)
         if os.path.exists(p):
-            pre = tf.keras.models.load_model(p)
+            pre = tf.keras.models.load_model(p, compile=False)
             n = 0
             for layer in model.layers:
                 try:

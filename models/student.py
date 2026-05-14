@@ -24,20 +24,17 @@ from config import WINDOW_LEN, NUM_CLASSES, STUDENT_FILTERS, STUDENT_FC_UNITS
 
 def dws_conv_block(x, filters: int, kernel_size: int, name_prefix: str):
     """
-    Depthwise-Separable Conv1D:
-      DepthwiseConv1D (spatial filtering per channel)
-      → PointwiseConv1D (channel mixing)
-      → BatchNorm → ReLU
-    Saves ~8-9× FLOPs vs standard Conv for equivalent output.
+    Depthwise-Separable Conv1D using keras.layers.SeparableConv1D:
+      Depthwise spatial filter + Pointwise channel mixer in one layer.
+      Saves ~8-9x FLOPs vs standard Conv1D for equivalent output.
+      Compatible with Keras 3 / TF 2.16 functional API.
     """
-    # Depthwise
-    x = layers.DepthwiseConv2D(
-        kernel_size=(kernel_size, 1), padding="same",
-        name=f"{name_prefix}_dw"
-    )(tf.expand_dims(x, axis=2))
-    x = tf.squeeze(x, axis=2)
-    # Pointwise
-    x = layers.Conv1D(filters, 1, padding="same", name=f"{name_prefix}_pw")(x)
+    x = layers.SeparableConv1D(
+        filters, kernel_size, padding="same",
+        depthwise_initializer="he_normal",
+        pointwise_initializer="he_normal",
+        name=f"{name_prefix}_dws"
+    )(x)
     x = layers.BatchNormalization(name=f"{name_prefix}_bn")(x)
     x = layers.Activation("relu", name=f"{name_prefix}_relu")(x)
     return x

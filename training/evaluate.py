@@ -13,6 +13,7 @@ from sklearn.metrics import (
     f1_score, accuracy_score
 )
 from config import PROCESSED_DIR, MODELS_DIR, FIGURES_DIR, LOGS_DIR, CLASSES, BATCH_SIZE
+import training.losses  # registers WeightedCrossEntropy with Keras serialization
 
 
 def load_test():
@@ -26,7 +27,7 @@ def predict_ecg_model(model_path, X_ecg):
     """Predict with a standard ECG-only model."""
     if not os.path.exists(model_path):
         return None, None
-    model = tf.keras.models.load_model(model_path)
+    model = tf.keras.models.load_model(model_path, compile=False)
     ds = tf.data.Dataset.from_tensor_slices(X_ecg).batch(BATCH_SIZE)
     probs = np.concatenate([model(x, training=False).numpy() for x in ds])
     return np.argmax(probs, 1), probs
@@ -36,7 +37,7 @@ def predict_fusion_model(model_path, X_ecg, X_ppg):
     """Predict with fusion (ECG + PPG) model."""
     if not os.path.exists(model_path):
         return None, None, None
-    model = tf.keras.models.load_model(model_path)
+    model = tf.keras.models.load_model(model_path, compile=False)
     ds = tf.data.Dataset.from_tensor_slices(
         {"fusion_ecg_input": X_ecg, "fusion_ppg_input": X_ppg}
     ).batch(BATCH_SIZE)

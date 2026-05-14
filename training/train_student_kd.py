@@ -26,7 +26,7 @@ from config import (
 )
 from models.teacher import build_teacher
 from models.student import build_student_with_intermediate
-from training.losses import KnowledgeDistillationLoss, WeightedCrossEntropy
+from training.losses import KnowledgeDistillationLoss, WeightedCrossEntropy  # also registers serializable
 
 tf.random.set_seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
@@ -219,7 +219,7 @@ def train_all_variants():
     X_val   = X_val[..., np.newaxis]
     print(f"  Train: {len(X_train):,}  |  Val: {len(X_val):,}")
 
-    # Load trained teacher
+    # Load trained teacher — import losses first so WeightedCrossEntropy is registered
     teacher_path = os.path.join(MODELS_DIR, "teacher_best.keras")
     if not os.path.exists(teacher_path):
         raise FileNotFoundError(
@@ -227,27 +227,13 @@ def train_all_variants():
             "Run: python training/train_teacher.py first."
         )
     print(f"\nLoading teacher from {teacher_path} …")
-    teacher_model = tf.keras.models.load_model(teacher_path)
-    _, teacher_feat_extractor = build_teacher()
-    # Copy weights from loaded model to feature extractor
-    teacher_feat_extractor.set_weights(
-        [w for w in teacher_model.weights
-         if w.name.split("/")[0] in
-            [l.name for l in teacher_feat_extractor.layers]]
-    )
-    # Simpler: rebuild and load by layer name
+    # Build both teacher models sharing the same weights
     teacher_full, teacher_feats = build_teacher()
-    teacher_full.set_weights(teacher_model.get_weights())
-    teacher_feats.set_weights(
-        [teacher_full.get_layer(l.name).get_weights()[0]
-         if teacher_full.get_layer(l.name).get_weights() else
-         teacher_full.get_layer(l.name).get_weights()
-         for l in teacher_feats.layers
-         if teacher_full.get_layer(l.name).get_weights()]
-    )
-    # Cleanest approach: use functional sub-model sharing weights
-    teacher_full, teacher_feats = build_teacher()
-    teacher_full.load_weights(teacher_path, by_name=True, skip_mismatch=True)
+    # Load checkpoint into the full model (WeightedCrossEntropy is already registered above)
+    loaded = tf.keras.models.load_model(teacher_path, compile=False)
+    teacher_full.set_weights(loaded.get_weights())
+    # teacher_feats shares weights with teacher_full (same layer objects in functional API)
+    print(f"Teacher loaded: {len(loaded.get_weights())} weight tensors")
 
     results = {}
     for name, (use_kl, use_spec) in [
