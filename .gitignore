@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Data (large files — store via DVC or download scripts)
+data/raw/
+data/processed/*.npz
+
+# Saved models (large)
+saved_models/
+deployment/tflite/*.tflite
+
+# Experiment logs
+experiments/logs/
+experiments/figures/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Env
+.env
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TensorFlow / Keras
+*.h5
+*.pb
+*.ckpt*
+checkpoint
+
+# Keep these tracked
+!saved_models/.gitkeep
+!data/processed/.gitkeep
+!experiments/logs/.gitkeep
+!experiments/figures/.gitkeep
