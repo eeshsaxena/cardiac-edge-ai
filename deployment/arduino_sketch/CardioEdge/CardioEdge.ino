@@ -29,11 +29,11 @@
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
-// Our generated model & helpers
-#include "student_kd_model.h"   // auto-generated C array
-#include "ecg_preprocess.h"     // ECG sampling + filtering + R-peak
+// Our generated model & helpers  (all files must be in the same sketch folder)
+#include "student_kd_model.h"   // 23.4 KB INT8 TFLite C array
+#include "ecg_preprocess.h"     // ECG sampling + bandpass + Pan-Tompkins
 #include "ppg_preprocess.h"     // MAX30102 driver + PPG normalisation
-#include "signal_buffer.h"      // circular buffers
+#include "signal_buffer.h"      // ISR-safe circular buffers
 
 // ── Pins ──────────────────────────────────────────────────────────────────────
 static const int PIN_ECG_IN   = A0;
@@ -65,15 +65,16 @@ static const char* CLASS_DESC[]  = {
 };
 
 // ── State ────────────────────────────────────────────────────────────────────
-static bool leads_ok        = false;
-static bool inference_ready = false;
-static float beat_window[ECG_WINDOW_LEN];   // 360 normalised ECG samples
-static uint32_t beat_count  = 0;
-static uint32_t alert_count = 0;
+static bool     leads_ok        = false;
+static bool     debug_stream    = false;    // toggle raw ADC via 'd' cmd
+static float    beat_window[ECG_WINDOW_LEN];
+static uint32_t beat_count      = 0;
+static uint32_t alert_count     = 0;
 
 // ── Forward declarations ──────────────────────────────────────────────────────
 bool  run_inference(const float* ecg_samples);
 void  print_result(int cls, const float* probs);
+void  handle_serial_commands();       // 'r' reset / 'd' debug / 's' stats
 void  setup_timer();                  // 360 Hz ECG sampling via hardware timer
 
 // ── ISR: 360 Hz ECG sample ───────────────────────────────────────────────────
@@ -204,11 +205,46 @@ void loop() {
     }
   }
 
-  // ── Stream raw ECG for Serial Plotter (comment out in production) ─────────
-  // int raw = ecg_last_raw();
-  // Serial.println(raw);
+  // ── Stream raw ADC for Serial Plotter (toggled via 'd' command) ────────────
+  if (debug_stream) {
+    Serial.println(ecg_last_raw());
+  }
 
-  delay(1);   // yield — timer ISR continues sampling
+  // ── Handle Serial commands ────────────────────────────────────────────────
+  handle_serial_commands();
+
+  delay(1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+void handle_serial_commands() {
+  if (!Serial.available()) return;
+  char cmd = Serial.read();
+  switch (cmd) {
+    case 'r':
+      ecg_reset();
+      beat_count = 0; alert_count = 0;
+      Serial.println(F("[CMD] ECG engine reset."));
+      break;
+    case 'd':
+      debug_stream = !debug_stream;
+      Serial.print(F("[CMD] Raw ADC stream: "));
+      Serial.println(debug_stream ? F("ON") : F("OFF"));
+      break;
+    case 's':
+      Serial.print(F("[STATS] Beats: "));
+      Serial.print(beat_count);
+      Serial.print(F("  Alerts: "));
+      Serial.print(alert_count);
+      Serial.print(F("  HR: "));
+      Serial.print(ecg_heart_rate(), 0);
+      Serial.print(F(" bpm  Arena: "));
+      Serial.print(interpreter->arena_used_bytes() / 1024.0f, 1);
+      Serial.println(F(" KB"));
+      break;
+  }
+  // flush rest of line
+  while (Serial.available()) Serial.read();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

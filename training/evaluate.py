@@ -37,6 +37,8 @@ def predict_fusion_model(model_path, X_ecg, X_ppg):
     """Predict with fusion (ECG + PPG) model."""
     if not os.path.exists(model_path):
         return None, None, None
+    import keras
+    keras.config.enable_unsafe_deserialization()  # needed for Lambda layer in fusion
     model = tf.keras.models.load_model(model_path, compile=False)
     ds = tf.data.Dataset.from_tensor_slices(
         {"fusion_ecg_input": X_ecg, "fusion_ppg_input": X_ppg}

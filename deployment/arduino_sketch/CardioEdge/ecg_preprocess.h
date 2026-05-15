@@ -31,22 +31,20 @@ static volatile int   ecg_ring_count = 0;
 static volatile int   ecg_raw_last = 0;
 
 // ── Bandpass biquad filter state (0.5–40 Hz @ 360 Hz) ───────────────────────
-// Computed via: scipy.signal.butter(2, [0.5, 40], 'bandpass', fs=360)
-// b = [0.13129, 0, -0.26258, 0, 0.13129]
-// a = [1, -2.4654, 2.5884, -1.3905, 0.3172]
-// Implemented as two cascaded second-order sections (SOS):
+// Computed via: scipy.signal.butter(2, [0.5, 40], 'bandpass', fs=360, output='sos')
+// Verified against Python reference in deployment/verify_filter_coefficients.py
 //
-// SOS[0]: b=[0.36230, 0.72460, 0.36230]  a=[1, -0.78419, 0.24548]
-// SOS[1]: b=[1, -2,  1]                  a=[1, -1.68121, 0.72460]
+// SOS[0]: b=[0.078762, 0.157525, 0.078762]  a=[-1.067092, 0.384234]
+// SOS[1]: b=[1.000000, -2.000000, 1.000000]  a=[-1.987664, 0.987742]
 
 struct BiquadState {
   float x1, x2, y1, y2;
 };
 
 static const float SOS[2][6] = {
-  // b0        b1        b2        a1         a2
-  { 0.36230f,  0.72460f, 0.36230f, -0.78419f, 0.24548f },  // low-cut stage
-  { 1.00000f, -2.00000f, 1.00000f, -1.68121f, 0.72460f },  // high-cut stage
+  // b0           b1          b2          a1           a2
+  { 0.078762f,  0.157525f,  0.078762f, -1.067092f,  0.384234f },
+  { 1.000000f, -2.000000f,  1.000000f, -1.987664f,  0.987742f },
 };
 static BiquadState bq[2] = {{0,0,0,0},{0,0,0,0}};
 
