@@ -98,21 +98,26 @@ def train():
             break
 
     ce_loss  = WeightedCrossEntropy(CLASS_WEIGHTS)
+    # Phase 1 optimizer — only PPG/fusion layers are trainable
     opt      = tf.keras.optimizers.Adam(LEARNING_RATE)
     best_f1, best_w, patience = 0.0, None, 0
+    ckpt_path = os.path.join(MODELS_DIR, "fusion_best.keras")  # save on every improvement
 
     for epoch in range(1, FUSION_EPOCHS + 1):
-        # Phase 1 freeze
+        # ── Phase transitions ─────────────────────────────────────────────
         if epoch == 1:
             for l in model.layers:
-                if "student" in l.name.lower():
+                if any(s in l.name.lower() for s in ["student", "s_blk", "s_fc"]):
                     l.trainable = False
             print("Phase 1 (ECG frozen) …")
+
         if epoch == 11:
             for l in model.layers:
                 l.trainable = True
-            opt.learning_rate.assign(LEARNING_RATE * 0.3)
-            print("Phase 2 (all unfrozen, LR × 0.3) …")
+            # CRITICAL: new optimizer required — Keras 3 forbids adding variables
+            # to an existing optimizer after it has been built.
+            opt = tf.keras.optimizers.Adam(LEARNING_RATE * 0.3)
+            print("Phase 2 (all unfrozen, new optimizer, LR × 0.3) …")
 
         t0, total_loss, steps = time.time(), 0.0, 0
         for inputs, y_b in train_ds:
@@ -130,6 +135,9 @@ def train():
 
         if f1 > best_f1:
             best_f1, best_w, patience = f1, model.get_weights(), 0
+            # Save to disk immediately — survives crashes
+            model.save(ckpt_path)
+            print(f"  ✓ Best checkpoint saved (F1={best_f1:.4f})")
         else:
             patience += 1
             if patience == 5:
